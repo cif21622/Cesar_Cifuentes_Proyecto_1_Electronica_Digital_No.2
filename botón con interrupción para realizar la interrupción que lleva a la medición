@@ -1,0 +1,85 @@
+// ****************************************************************************
+// BE3029 - Electronica Digital 2
+// Lectura ADC a Digital 
+// ****************************************************************************
+// Librerias
+// ****************************************************************************
+#include <Arduino.h>
+#define pinADC 34
+int resolucion = 12;
+int width =12; 
+
+// ****************************************************************************
+// Variables Globales
+// ****************************************************************************
+float V_Temperatura = 0.00;
+float voltaje = 00.0;
+float Lectura =00.0;
+//Se definen los pines del botón de entrada 
+const int BotonB1 = 13;
+//Variable para la toma de los datos 
+volatile bool Toma_T = true;
+
+
+// ****************************************************************************
+// Prototipos de Funcion
+// ****************************************************************************
+
+// ****************************************************************************
+// ISR vectores de interrupciones
+// ****************************************************************************
+void IRAM_ATTR ISR_1() {
+  Toma_T = false;
+}
+// ****************************************************************************
+// Funcion setup (inicial)
+// ****************************************************************************
+void setup(){
+analogRead(pinADC);
+analogReadResolution(resolucion);
+analogSetWidth(width);
+Serial.begin(9600);
+
+ // Configurar los pines de los botones como entradas con resistencia de pull-up y que se active la interrupción cuando la señal esté en bajada. Se indica tambíen el vector de interrupción 
+pinMode(BotonB1, INPUT_PULLUP);
+attachInterrupt(BotonB1, ISR_1, FALLING);
+
+}
+// ****************************************************************************
+// Loop principal
+// ****************************************************************************
+void loop(){
+
+
+if (!Toma_T) {
+    Lectura = analogRead(pinADC);
+    voltaje = (Lectura*3.3)/4095; 
+    V_Temperatura = ((voltaje*100)-55);
+    delay(20);
+    Toma_T = true;
+    }
+    else{  
+    voltaje = voltaje; 
+    V_Temperatura = V_Temperatura;
+    }
+
+  Serial.println("");
+  Serial.print("Raw Value: ");
+  Serial.print(Lectura);
+  Serial.print("  Voltage: ");
+  Serial.print(voltaje);
+  Serial.print("  Temperatura: ");
+  Serial.print(V_Temperatura);
+
+  delay(1000); // Esperar un segundo antes de la siguiente lectura
+}
+// ****************************************************************************
+// Otras funciones
+// ****************************************************************************
+// ****************************************************************************
+
+// ****************************************************************************
+
+// ****************************************************************************
+// Funcion Filtro EMA
+// ****************************************************************************
