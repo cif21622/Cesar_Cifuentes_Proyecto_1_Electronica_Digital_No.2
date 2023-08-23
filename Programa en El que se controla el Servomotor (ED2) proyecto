@@ -1,0 +1,217 @@
+// ****************************************************************************
+// BE3029 - Electronica Digital 2
+// Lectura ADC a Digital 
+// ****************************************************************************
+// Librerias
+// ****************************************************************************
+#include <Arduino.h>
+#define pinADC 34
+int resolucion = 12;
+int width =12; 
+
+// ****************************************************************************
+// Variables Globales
+// ****************************************************************************
+float V_Temperatura = 0.00;
+float voltaje = 00.0;
+float Lectura =00.0;
+//Se definen los pines del botón de entrada 
+const int BotonB1 = 13;
+//Variable para la toma de los datos 
+volatile bool Toma_T = true;
+
+
+//Variables para el semaforo
+const int ledRojo = 27;
+const int ledVerde= 4;
+const int ledAmarillo = 26;
+
+//Variables para el servomotor
+const int Servo = 33;
+//Se definen lps Canales para los 3 PWM Generados para controlar la led 
+const int ledChannel1 = 0; // Canal PWM (0-15)
+const int ledChannel2 = 1; // Canal PWM (0-15)
+const int ledChannel3 = 2; // Canal PWM (0-15)
+//Se definen el canal para el PWM Generado para controlar la led 
+const int ledChannelServo = 3; // Canal PWM (0-15) 
+const int resolucionpwml = 10; // Resolución (0-15) Bits
+const int frecuencia = 50; //Frecuencia de 50 Hz
+//Se indica el donde inicia el ciclo de trabajo 
+// Estas Variables son generadas como Volatile, ya que van a cambiar durante todo el progrma, ya que estas almacenan el circlo de trabajo 
+volatile int dutycicleRojo = 0;
+volatile int dutycicleVerde = 0;
+volatile int dutycicleAmarillo = 0;
+volatile int dutycicleServo = 75;
+// ****************************************************************************
+// Prototipos de Funcion
+// ****************************************************************************
+
+// ****************************************************************************
+// ISR vectores de interrupciones
+// ****************************************************************************
+void IRAM_ATTR ISR_1() {
+  Toma_T = false;
+}
+// ****************************************************************************
+// Funcion setup (inicial)
+// ****************************************************************************
+void setup(){
+analogRead(pinADC);
+analogReadResolution(resolucion);
+analogSetWidth(width);
+Serial.begin(9600);
+
+ // Configurar los pines de los botones como entradas con resistencia de pull-up y que se active la interrupción cuando la señal esté en bajada. Se indica tambíen el vector de interrupción 
+pinMode(BotonB1, INPUT_PULLUP);
+attachInterrupt(BotonB1, ISR_1, FALLING);
+
+
+//Configuración del semaforo de Leds 
+//Se configuran las Salidas del PWM indicando la resolución, frecuencia y el canal, los cuales fueron definidos en las variables golbales 
+//ledChannel1- PWM para el Led Rojo
+//ledChannel2- PWM para el Led Verde
+//ledChannel3- PWM para el Led Azul
+//Configuración de los PWM 
+ledcSetup(ledChannel1, frecuencia, resolucionpwml);
+// attach the channel to the GPIO to be controlled (Especificar en la señal en la que va a salir el PWM)
+ledcAttachPin(ledVerde, ledChannel1);
+//Configuración de los PWM 
+ledcSetup(ledChannel2, frecuencia, resolucionpwml);
+// attach the channel to the GPIO to be controlled (Especificar en la señal en la que va a salir el PWM)
+ledcAttachPin(ledAmarillo, ledChannel2);
+//Configuración de los PWM 
+ledcSetup(ledChannel3, frecuencia, resolucionpwml);
+// attach the channel to the GPIO to be controlled (Especificar en la señal en la que va a salir el PWM)
+ledcAttachPin(ledRojo, ledChannel3);
+
+//Configuración de los PWM 
+ledcSetup(ledChannelServo, frecuencia, resolucionpwml);
+// attach the channel to the GPIO to be controlled (Especificar en la señal en la que va a salir el PWM)
+ledcAttachPin(Servo, ledChannelServo);
+
+
+}
+// ****************************************************************************
+// Loop principal
+// ****************************************************************************
+void loop(){
+
+
+if (!Toma_T) {
+    Lectura = analogRead(pinADC);
+    voltaje = (Lectura*3.3)/4095; 
+    V_Temperatura = ((voltaje*100)+6);
+    delay(20);
+    Toma_T = true;
+    }
+    else{  
+    voltaje = voltaje; 
+    V_Temperatura = V_Temperatura;
+    }
+  
+if(V_Temperatura <= 25){
+    dutycicleVerde =50;
+    dutycicleAmarillo = 0;
+    dutycicleRojo = 0;
+    dutycicleServo = 25;
+    }
+  
+if(V_Temperatura > 25 & V_Temperatura <30 ){
+    dutycicleVerde = V_Temperatura*(2+5);
+    dutycicleAmarillo = 0;
+    dutycicleRojo = 0;
+    dutycicleServo = (V_Temperatura)*1.10;
+    }
+
+if(V_Temperatura >= 30 & V_Temperatura <33 ){
+    dutycicleVerde = V_Temperatura*(3+5);
+    dutycicleAmarillo = 0;
+    dutycicleRojo = 0;
+    dutycicleServo = (V_Temperatura)*1.20;
+    
+    }
+
+if(V_Temperatura >= 33 & V_Temperatura <37 ){
+    dutycicleVerde = V_Temperatura*(4+5);
+    dutycicleAmarillo = 0;
+    dutycicleRojo = 0;
+    dutycicleServo = (V_Temperatura)*1.30;
+    
+    }
+
+
+if(V_Temperatura >=37 & V_Temperatura <=37.5  ){
+    dutycicleVerde =0;
+    dutycicleRojo = 0;
+  if(V_Temperatura =37 ){
+    dutycicleAmarillo =25;
+    dutycicleServo = 50;    
+    }
+  if(V_Temperatura =37.1 ){
+    dutycicleAmarillo =50;
+    dutycicleServo = 64;       
+    }
+  if(V_Temperatura =37.2 ){
+    dutycicleAmarillo =75;
+    dutycicleServo = 70;       
+    }
+  if(V_Temperatura =37.3 ){
+    dutycicleAmarillo =100; 
+    dutycicleServo = 76;      
+    }
+  if(V_Temperatura =37.4 ){
+    dutycicleAmarillo =125;  
+    dutycicleServo = 88;     
+    }
+  if(V_Temperatura =37.5 ){
+    dutycicleAmarillo =150;
+    dutycicleServo = 100;       
+    }
+    }
+
+  if(V_Temperatura>37.5 & V_Temperatura <42  ){
+    dutycicleVerde =0;
+    dutycicleAmarillo = 0;
+    dutycicleRojo =V_Temperatura*( V_Temperatura/10);
+    dutycicleServo = (V_Temperatura)*(2.97); 
+    }
+
+  if(V_Temperatura >= 42){
+    dutycicleVerde =0;
+    dutycicleAmarillo = 0;
+    dutycicleRojo = 300;
+    dutycicleServo=125;
+    }
+  
+
+
+
+  Serial.println("");
+  Serial.print("Raw Value: ");
+  Serial.print(Lectura);
+  Serial.print("  Voltage: ");
+  Serial.print(voltaje);
+  Serial.print("  Temperatura: ");
+  Serial.print(V_Temperatura);
+
+    // changing the duty cycle of the PWM del Led Rojo
+ledcWrite(ledChannel1, dutycicleVerde);
+// changing the duty cycle of the PWM  del Led Verde
+ledcWrite(ledChannel2, dutycicleAmarillo);
+// changing the duty cycle of the PWM del Led Azul
+ledcWrite(ledChannel3, dutycicleRojo);
+// changing the duty cycle of the PWM del Servomotor
+ledcWrite(ledChannelServo, dutycicleServo);
+
+delay(100); // Esperar un segundo antes de la siguiente lectura
+}
+// ****************************************************************************
+// Otras funciones
+// ****************************************************************************
+// ****************************************************************************
+
+// ****************************************************************************
+
+// ****************************************************************************
+// Funcion Filtro EMA
+// ****************************************************************************
