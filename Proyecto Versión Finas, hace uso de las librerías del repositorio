@@ -1,0 +1,358 @@
+// ****************************************************************************
+// BE3029 - Electronica Digital 2
+// Proyecto No.1 
+//Sensor de temperatura 
+//César Cifuentes Carné:21622
+// ****************************************************************************
+// Librerias
+// ****************************************************************************
+#include <Arduino.h>
+#include "config.h"
+#include "Display7seg.h"
+
+
+//Definicion de Pin y de variables para el sensor LM35DZ
+#define pinADC 34
+int resolucion = 12;
+int width = 12;
+
+// ****************************************************************************
+// Variables Globales
+// ****************************************************************************
+
+// Variable para guardar la temperatura en grados centigrados 
+float V_Temperatura = 0.00;
+// Variables para hacer la conversión de Entrada analógica a Digital 
+float voltaje = 00.0;
+float Lectura = 00.0;
+
+
+// Se definen los pines del botón de entrada para realizar la medición de la temepratura 
+const int BotonB1 = 13;
+
+
+// Variable para la toma de los datos, se usa para compararla por medio de una interrupción y realizar la módificación 
+volatile bool Toma_T = true;
+
+// Variables para el semaforo
+const int ledRojo = 27;
+const int ledVerde = 22;
+const int ledAmarillo = 26;
+
+// Variables para el servomotor
+const int Servo = 33;
+
+
+// Se definen lps Canales para los 3 PWM Generados para controlar la led
+const int ledChannel1 = 0; // Canal PWM (0-15)
+const int ledChannel2 = 1; // Canal PWM (0-15)
+const int ledChannel3 = 2; // Canal PWM (0-15)
+// Se definen el canal para el PWM Generado para controlar el servo 
+const int ledChannelServo = 3; // Canal PWM (0-15)
+//Se define la resolución y la frecuencia para el PWM 
+const int resolucionpwml = 10; // Resolución (0-15) Bits
+const int frecuencia = 50;     // Frecuencia de 50 Hz
+
+// Se indica el donde inicia el ciclo de trabajo
+//  Estas Variables son generadas como Volatile, ya que van a cambiar durante todo el progrma, ya que estas almacenan el circlo de trabajo
+volatile int dutycicleRojo = 0;
+volatile int dutycicleVerde = 0;
+volatile int dutycicleAmarillo = 0;
+volatile int dutycicleServo = 75;
+
+
+//Variables para los displays de 7 segmentos 
+
+// En lugar de F se utilizará una P para el display de 7 segmentos
+#define A 21
+#define B 19
+#define C 18
+#define D 5
+#define E 17
+#define P 16
+#define G 4
+#define dP 2
+#define digito1 14
+#define digito2 12
+#define digito3 22
+
+//Variable usada para realizar los calculos para mostrar la LCD
+int Temp = 0;
+//**************************************************************************************************
+
+
+
+
+// ****************************************************************************
+// Configuración para la conexión de ADAFRUI IO
+// ****************************************************************************
+// set up the 'temperatura' feed
+AdafruitIO_Feed *tempCanal = io.feed("Sensor de Temperatura");
+
+
+
+
+// ****************************************************************************
+// Prototipos de Funcion
+// ****************************************************************************
+
+// ****************************************************************************
+// ISR vectores de interrupciones
+// ****************************************************************************
+//Interrupción para realizar la toma de la temperatura por medio de un botón 
+void IRAM_ATTR ISR_1()
+{
+  Toma_T = false;
+}
+
+
+
+// ****************************************************************************
+// Funcion setup (inicial)
+// ****************************************************************************
+void setup()
+{ 
+  //Se definen las entradas analogicas y su resolución  para el ADC
+  analogRead(pinADC);
+  analogReadResolution(resolucion);
+  analogSetWidth(width);
+  Serial.begin(115200);
+
+  // Configurar los pines de los botones como entradas con resistencia de pull-up y que se active la interrupción cuando la señal esté en bajada. Se indica tambíen el vector de interrupción
+  pinMode(BotonB1, INPUT_PULLUP);
+  attachInterrupt(BotonB1, ISR_1, FALLING);
+
+  // Configuración del semaforo de Leds
+  // Se configuran las Salidas del PWM indicando la resolución, frecuencia y el canal, los cuales fueron definidos en las variables golbales
+  // ledChannel1- PWM para el Led Rojo
+  // ledChannel2- PWM para el Led Verde
+  // ledChannel3- PWM para el Led Azul
+  // Configuración de los PWM
+  ledcSetup(ledChannel1, frecuencia, resolucionpwml);
+  // attach the channel to the GPIO to be controlled (Especificar en la señal en la que va a salir el PWM)
+  ledcAttachPin(ledVerde, ledChannel1);
+  // Configuración de los PWM
+  ledcSetup(ledChannel2, frecuencia, resolucionpwml);
+  // attach the channel to the GPIO to be controlled (Especificar en la señal en la que va a salir el PWM)
+  ledcAttachPin(ledAmarillo, ledChannel2);
+  // Configuración de los PWM
+  ledcSetup(ledChannel3, frecuencia, resolucionpwml);
+  // attach the channel to the GPIO to be controlled (Especificar en la señal en la que va a salir el PWM)
+  ledcAttachPin(ledRojo, ledChannel3);
+
+  // Configuración de los PWM
+  ledcSetup(ledChannelServo, frecuencia, resolucionpwml);
+  // attach the channel to the GPIO to be controlled (Especificar en la señal en la que va a salir el PWM)
+  ledcAttachPin(Servo, ledChannelServo);
+
+
+  //******************************************************
+  // Configuración de los display de 7 segmentos y sus transistores 
+  configurarDisplay(A, B, C, D, E, P, G, dP);
+  // Función para configurar el Display de 7 segmentos
+  pinMode(digito1, OUTPUT);
+  pinMode(digito2, OUTPUT);
+  pinMode(digito3, OUTPUT);
+
+  digitalWrite(digito1, LOW);
+  digitalWrite(digito2, LOW);
+  digitalWrite(digito3, LOW);
+  //*******************************************************
+
+  // Conexión del ESP 32 al Adafruit IO
+  //  wait for serial monitor to open
+  while (!Serial)
+    ;
+
+  Serial.print("Connecting to Adafruit IO");
+
+  // connect to io.adafruit.com
+  io.connect();
+
+  // wait for a connection
+  while (io.status() < AIO_CONNECTED)
+  {
+    Serial.print(".");
+    delay(500);
+  }
+
+  // we are connected
+  Serial.println();
+  Serial.println(io.statusText());
+  //
+
+
+}
+
+// ****************************************************************************
+// Loop principal
+// ****************************************************************************
+void loop()
+{
+//Se procede a la toma de temperatura cuando la interrpción No. 1  es activada 
+  if (!Toma_T)
+  {
+    //Se hace la conversión de la señal ADC a digital. 
+    Lectura = analogRead(pinADC);
+    voltaje = (Lectura * 5) / 4095;
+    V_Temperatura = ((voltaje * 100));
+    delay(20);
+    Toma_T = true;
+    //Se envia la temperatura registrada o medida a los servidores de Adafruit IO 
+    // Enviando mensaje
+    io.run();
+    // save count to the 'counter' feed on Adafruit IO
+    Serial.print("sending -> ");
+    Serial.println(V_Temperatura);
+    tempCanal->save(V_Temperatura);
+  }
+  else
+  {
+    voltaje = voltaje;
+    V_Temperatura = V_Temperatura;
+  }
+
+//Se establen los PWM para la configuración del semaforo de leds y del reloj de temperatura con el Servomotor, esto se hace por medio de PWM y variación del ciclo de trabajo 
+// La fase verde se encuentra de 30.5 a 37
+//La fase amarilla se encuentra de 37 a 37.5 grados 
+//La fase roja se encuentra de 37.5 grados a 42 grados  
+  if (V_Temperatura <= 30.5)
+  {
+    dutycicleVerde = 50;
+    dutycicleAmarillo = 0;
+    dutycicleRojo = 0;
+    dutycicleServo = 25;
+  }
+
+  if (V_Temperatura > 30.5 && V_Temperatura < 33)
+  {
+    dutycicleVerde = V_Temperatura * (2 + 5);
+    dutycicleAmarillo = 0;
+    dutycicleRojo = 0;
+    dutycicleServo = (V_Temperatura)*1.10;
+  }
+
+  if (V_Temperatura >= 33 && V_Temperatura < 37)
+  {
+    dutycicleVerde = V_Temperatura * (4 + 5);
+    dutycicleAmarillo = 0;
+    dutycicleRojo = 0;
+    dutycicleServo = (V_Temperatura)*1.30;
+  }
+
+  if (V_Temperatura >= 37 && V_Temperatura <= 37.5)
+  {
+    dutycicleVerde = 0;
+    dutycicleRojo = 0;
+    if (V_Temperatura == 37)
+    {
+      dutycicleAmarillo = 25;
+      dutycicleServo = 50;
+    }
+    if (V_Temperatura == 37.1)
+    {
+      dutycicleAmarillo = 50;
+      dutycicleServo = 64;
+    }
+    if (V_Temperatura == 37.2)
+    {
+      dutycicleAmarillo = 75;
+      dutycicleServo = 70;
+    }
+    if (V_Temperatura == 37.3)
+    {
+      dutycicleAmarillo = 100;
+      dutycicleServo = 76;
+    }
+    if (V_Temperatura == 37.4)
+    {
+      dutycicleAmarillo = 125;
+      dutycicleServo = 88;
+    }
+    if (V_Temperatura == 37.5)
+    {
+      dutycicleAmarillo = 150;
+      dutycicleServo = 100;
+    }
+  }
+
+  if (V_Temperatura > 37.5 && V_Temperatura < 42)
+  {
+    dutycicleVerde = 0;
+    dutycicleAmarillo = 0;
+    dutycicleRojo = V_Temperatura * (V_Temperatura / 10);
+    dutycicleServo = (V_Temperatura) * (2.97);
+  }
+
+  if (V_Temperatura >= 42)
+  {
+    dutycicleVerde = 0;
+    dutycicleAmarillo = 0;
+    dutycicleRojo = 300;
+    dutycicleServo = 125;
+  }
+
+  Serial.println("");
+  Serial.print("Raw Value: ");
+  Serial.print(Lectura);
+  Serial.print("  Voltage: ");
+  Serial.print(voltaje);
+  Serial.print("  Temperatura: ");
+  Serial.print(V_Temperatura);
+  
+  //***************************
+  //Configuración para que se muestren los valores en los display de 7 segmentos 
+  //************************
+    Temp = V_Temperatura*10;
+  int decena = Temp/100;
+  Temp = Temp - (decena * 100);
+  int unidad = Temp/10;
+  Temp = Temp - (unidad*10);
+  int decimal = Temp;
+  desplegar7Seg(decena);
+  digitalWrite(digito1, HIGH);
+  digitalWrite(digito2, LOW);
+  digitalWrite(digito3, LOW);
+  desplegarPunto(0);
+  delay(5);
+
+
+  desplegar7Seg(unidad);
+  digitalWrite(digito1, LOW);
+  digitalWrite(digito2, HIGH);
+  digitalWrite(digito3, LOW);
+  desplegarPunto(1);
+  delay(5);
+
+  desplegar7Seg(decimal);
+  digitalWrite(digito1, LOW);
+  digitalWrite(digito2, LOW);
+  digitalWrite(digito3, HIGH);
+  desplegarPunto(0);
+  delay(5);
+
+  //************************
+
+  //Se actualizan el ciclo de trabajo con base a la conversión realizada anteriormente, 
+  //esto permite que se actualice la intensidad, color y posición del semaforo de temperatura y
+  // del reloj de temperatura 
+
+  // changing the duty cycle of the PWM del Led Rojo
+  ledcWrite(ledChannel1, dutycicleVerde);
+  // changing the duty cycle of the PWM  del Led Verde
+  ledcWrite(ledChannel2, dutycicleAmarillo);
+  // changing the duty cycle of the PWM del Led Azul
+  ledcWrite(ledChannel3, dutycicleRojo);
+  // changing the duty cycle of the PWM del Servomotor
+  ledcWrite(ledChannelServo, dutycicleServo);
+
+  delay(100); // Esperar un segundo antes de la siguiente lectura
+}
+
+
+
+
+// ****************************************************************************
+// Otras funciones
+// ****************************************************************************
+// ****************************************************************************
