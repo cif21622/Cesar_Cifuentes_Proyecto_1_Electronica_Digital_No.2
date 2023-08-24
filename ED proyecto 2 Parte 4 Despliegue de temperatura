@@ -1,10 +1,83 @@
-void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(115200);
-  Serial.println("Hello, ESP32!");
+//Este código incluye la creación de una libreria  la libreria se encuentra en el repositorio
+// ****************************************************************************
+// BE3029 - Electronica Digital 2
+// Lectura ADC a Digital
+// ****************************************************************************
+// Librerias
+// ****************************************************************************
+#include <Arduino.h>
+#include "config.h"
+#include "Display7seg.h"
+
+// En lugar de F se utilizará una P para el display de 7 segmentos
+#define A 21
+#define B 19
+#define C 18
+#define D 5
+#define E 17
+#define P 16
+#define G 4
+#define dP 2
+#define digito1 14
+#define digito2 12
+#define digito3 22
+
+float V_Temperatura = 0.00;
+
+int Temp = 0;
+
+// ****************************************************************************
+// Prototipos de Funcion
+// ****************************************************************************
+
+void setup()
+{
+  configurarDisplay(A, B, C, D, E, P, G, dP);
+  // Función para configurar el Display de 7 segmentos
+  pinMode(digito1, OUTPUT);
+  pinMode(digito2, OUTPUT);
+  pinMode(digito3, OUTPUT);
+
+  digitalWrite(digito1, LOW);
+  digitalWrite(digito2, LOW);
+  digitalWrite(digito3, LOW);
+
 }
 
-void loop() {
-  // put your main code here, to run repeatedly:
-  delay(10); // this speeds up the simulation
+// ****************************************************************************
+// Loop principal
+// ****************************************************************************
+void loop()
+{
+  Temp = V_Temperatura*10;
+  int decena = Temp/100;
+  Temp = Temp - (decena * 100);
+  int unidad = Temp/10;
+  Temp = Temp - (unidad*10);
+  int decimal = Temp;
+  desplegar7Seg(decena);
+  digitalWrite(digito1, HIGH);
+  digitalWrite(digito2, LOW);
+  digitalWrite(digito3, LOW);
+  desplegarPunto(0);
+  delay(5);
+
+
+  desplegar7Seg(unidad);
+  digitalWrite(digito1, LOW);
+  digitalWrite(digito2, HIGH);
+  digitalWrite(digito3, LOW);
+  desplegarPunto(1);
+  delay(5);
+
+  desplegar7Seg(decimal);
+  digitalWrite(digito1, LOW);
+  digitalWrite(digito2, LOW);
+  digitalWrite(digito3, HIGH);
+  desplegarPunto(0);
+  delay(5);
+
+  //
 }
+
+
