@@ -1,8 +1,6 @@
 // ****************************************************************************
 // BE3029 - Electronica Digital 2
-// Proyecto No.1 
-//Sensor de temperatura 
-//César Cifuentes Carné:21622
+// Lectura ADC a Digital
 // ****************************************************************************
 // Librerias
 // ****************************************************************************
@@ -74,7 +72,7 @@ volatile int dutycicleServo = 75;
 #define dP 2
 #define digito1 14
 #define digito2 12
-#define digito3 22
+#define digito3 32
 
 //Variable usada para realizar los calculos para mostrar la LCD
 int Temp = 0;
@@ -244,27 +242,27 @@ void loop()
   {
     dutycicleVerde = 0;
     dutycicleRojo = 0;
-    if (V_Temperatura == 37)
+    if (V_Temperatura >= 37 && V_Temperatura < 37.1)
     {
       dutycicleAmarillo = 25;
       dutycicleServo = 50;
     }
-    if (V_Temperatura == 37.1)
+    if (V_Temperatura >= 37.1 && V_Temperatura < 37.2)
     {
       dutycicleAmarillo = 50;
       dutycicleServo = 64;
     }
-    if (V_Temperatura == 37.2)
+    if (V_Temperatura >= 37.2 && V_Temperatura < 37.3)
     {
       dutycicleAmarillo = 75;
       dutycicleServo = 70;
     }
-    if (V_Temperatura == 37.3)
+    if (V_Temperatura >= 37.3 && V_Temperatura < 37.4)
     {
       dutycicleAmarillo = 100;
       dutycicleServo = 76;
     }
-    if (V_Temperatura == 37.4)
+    if (V_Temperatura >= 37.4 && V_Temperatura < 37.5)
     {
       dutycicleAmarillo = 125;
       dutycicleServo = 88;
@@ -329,7 +327,6 @@ void loop()
   digitalWrite(digito2, LOW);
   digitalWrite(digito3, HIGH);
   desplegarPunto(0);
-  delay(5);
 
   //************************
 
@@ -346,7 +343,7 @@ void loop()
   // changing the duty cycle of the PWM del Servomotor
   ledcWrite(ledChannelServo, dutycicleServo);
 
-  delay(100); // Esperar un segundo antes de la siguiente lectura
+  delay(5); // Esperar un segundo antes de la siguiente lectura
 }
 
 
